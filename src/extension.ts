@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import path = require('path');
+import * as path from 'path';
 
 enum Qualifier {
 	static = "static",
@@ -23,7 +23,28 @@ interface StackUsageDbEntry extends SuFileEntry {
 	source: string;
 }
 
-// type StackUsageDb = StackUsageDbEntry[];
+interface CompileCommand {
+	directory: string;
+	command: string;
+	file: string
+}
+
+class StackUsageDb {
+	#data: StackUsageDbEntry[] = [];
+
+	addFromFile(entries: SuFileEntry[], source: string) {
+		this.#data = this.#data.filter(entry => entry.source !== source);
+		entries.forEach(entry => this.#data.push({ source: source, ...entry }));
+	}
+
+	clear() {
+		this.#data = [];
+	}
+
+	getDataForFile(path: string): StackUsageDbEntry[] {
+		return this.#data.filter(entry => entry.path === path);
+	}
+}
 
 function readSuFile(path: string): SuFileEntry[] {
 	console.log("reading su file: " + path);
@@ -45,24 +66,13 @@ function readSuFile(path: string): SuFileEntry[] {
 			});
 }
 
-class StackUsageDb {
-	#data: StackUsageDbEntry[] = [];
-
-	addFromFile(entries: SuFileEntry[], source: string) {
-		this.#data = this.#data.filter(entry => entry.source !== source);
-		entries.forEach(entry => this.#data.push({ source: source, ...entry }));
-	}
-
-	getDataForFile(path: string): StackUsageDbEntry[] {
-		return this.#data.filter(entry => entry.path === path);
-	}
+function makeDecorationType() {
+	return vscode.window.createTextEditorDecorationType({
+		cursor: 'crosshair',
+		backgroundColor: "darkBlue",
+		after: { margin: "10px", color: "red" }
+	});
 }
-
-const stackSizeDecorationType = vscode.window.createTextEditorDecorationType({
-	cursor: 'crosshair',
-	backgroundColor: "darkBlue",
-	after: { margin: "10px", color: "red" }
-});
 
 function makeDecorations(entries: StackUsageDbEntry[], document: vscode.TextDocument) {
 	return entries.map((entry: SuFileEntry) => {
@@ -77,46 +87,166 @@ function makeDecorations(entries: StackUsageDbEntry[], document: vscode.TextDocu
 	});
 }
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
-	let db = new StackUsageDb();
+function setStackUsageDecorationsToEditor(editor: vscode.TextEditor, db: StackUsageDb, decorationType: vscode.TextEditorDecorationType) {
+	if (editor.document.languageId === "cpp") {
+		const entries = db.getDataForFile(editor.document.uri.path);
+		const decorations = makeDecorations(entries, editor.document);
+		editor.setDecorations(decorationType, decorations);
+	}
+}
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerTextEditorCommand("stack-usage.helloWorld", (textEditor: vscode.TextEditor) => {
-		const entries = db.getDataForFile(textEditor.document.uri.path);
-		const decorations = makeDecorations(entries, textEditor.document);
-		textEditor.setDecorations(stackSizeDecorationType, decorations);
+function setStackUsageDecorationsToVisibleEditors(db: StackUsageDb, decorationType: vscode.TextEditorDecorationType) {
+	vscode.window.visibleTextEditors.forEach(editor => setStackUsageDecorationsToEditor(editor, db, decorationType));
+}
+
+function readCompileCommandsFromFile(path: string): CompileCommand[] {
+	const rawdata = fs.readFileSync(path, 'utf-8');
+	const data: CompileCommand[] = JSON.parse(rawdata);
+	return data;
+}
+
+function getSuFileName(compileCommand: CompileCommand): string | null {
+	const outputNameRegex = /.+-o (.+)\.o.+/;
+	const match = outputNameRegex.exec(compileCommand.command)!;
+	const outputName = match[1];
+	const suFileName = path.join(compileCommand.directory, outputName) + '.su';
+	return suFileName;
+}
+
+function processSuFile(suFileName: string, sourceName: string, db: StackUsageDb, decorationType: vscode.TextEditorDecorationType) {
+	db.addFromFile(readSuFile(suFileName), sourceName);
+	setStackUsageDecorationsToVisibleEditors(db, decorationType);
+}
+
+function registerSuFileWatchers(filePath: string, db: StackUsageDb, decorationType: vscode.TextEditorDecorationType): vscode.Disposable[] {
+	let watchers: vscode.Disposable[] = [];
+	readCompileCommandsFromFile(filePath).forEach((entry) => {
+		const suFileName = getSuFileName(entry);
+		if (suFileName !== null) {
+			watchers.push(createFileSystemWatcher(suFileName, () => processSuFile(suFileName, entry.file, db, decorationType)));
+		}
 	});
-	context.subscriptions.push(disposable);
+	return watchers;
+}
 
-	const compileCommands = '/Users/timo/Desktop/stack-usage-test/compile_commands.json';
-	const realCompileCommands = fs.realpathSync(compileCommands);
-	console.log("Real compile path:" + realCompileCommands);
-	let watcherDisposable = vscode.workspace.createFileSystemWatcher(realCompileCommands, false, false, false);
-	watcherDisposable.onDidChange((file: vscode.Uri) => { console.log("compile commands changed"); });
-	watcherDisposable.onDidCreate((file: vscode.Uri) => { console.log("compile commands created"); });
-	context.subscriptions.push(watcherDisposable);
+class DisposableContainer {
+	#disposables: vscode.Disposable[] = [];
+	set(disposables: vscode.Disposable[]) {
+		this.dispose();
+		this.#disposables = disposables;
+	}
+	dispose() {
+		this.#disposables.forEach(disposable => disposable.dispose());
+		this.#disposables.length = 0;
+	}
+}
 
-	interface CompileCommand {
-		directory: string;
-		command: string;
-		file: string
+class DisposableSlot {
+	#disposable: vscode.Disposable | null = null;
+
+	set(disposable: vscode.Disposable) {
+		this.dispose();
+		this.#disposable = disposable;
 	}
 
-	const rawdata = fs.readFileSync(realCompileCommands, 'utf-8');
-	const data: CompileCommand[] = JSON.parse(rawdata);
+	dispose() {
+		this.#disposable?.dispose();
+		this.#disposable = null;
+	}
+}
 
-	const outputNameRegex = /.+-o (.+)\.o.+/;
-	data.forEach((entry) => {
-		const match = outputNameRegex.exec(entry.command)!;
-		const outputName = match[1];
-		const suFileName = path.join(entry.directory, outputName) + '.su';
-		db.addFromFile(readSuFile(suFileName), entry.file);
-		let watcherDisposable = vscode.workspace.createFileSystemWatcher(suFileName, false, false, false);
-		watcherDisposable.onDidChange((file: vscode.Uri) => { db.addFromFile(readSuFile(suFileName), entry.file); });
+function createFileSystemWatcher(path: string, listener: () => void): vscode.FileSystemWatcher {
+	console.log("Creating file system watcher for " + path);
+	let watcher = vscode.workspace.createFileSystemWatcher(path, false, false, false);
+	watcher.onDidChange(listener);
+	watcher.onDidCreate(listener);
+	watcher.onDidDelete(listener);
+	listener();
+	return watcher;
+}
+
+function getCompileCommandsPath(workspaceFolder: vscode.WorkspaceFolder): string {
+	return path.join(workspaceFolder.uri.fsPath, "compile_commands.json");
+}
+
+function isError(error: any): error is NodeJS.ErrnoException { return error instanceof Error; }
+
+
+function getRealCompileCommandsPath(workspaceFolder: vscode.WorkspaceFolder): string | null {
+	const compileCommandsPath = getCompileCommandsPath(workspaceFolder);
+	try {
+		return path.resolve(path.dirname(compileCommandsPath), fs.readlinkSync(compileCommandsPath));
+	} catch (error) {
+		if (isError(error)) {
+			if (error.code === "ENOENT") {
+				// File does not exist.
+				return null;
+			} else if (error.code === "EINVAL") {
+				// Files is not a symbolic link.
+				return compileCommandsPath;
+			}
+		}
+		throw (error);
+	}
+}
+
+class WorkspaceHandler {
+	#workspaceFolder: vscode.WorkspaceFolder;
+	#db: StackUsageDb = new StackUsageDb();
+	#compileCommandsWatcher: vscode.FileSystemWatcher;
+	#realCompileCommandsWatcher: DisposableSlot = new DisposableSlot();
+	#suFileWatchers: DisposableContainer = new DisposableContainer();
+	#decorationType: vscode.TextEditorDecorationType = makeDecorationType();
+
+	constructor(workspaceFolder: vscode.WorkspaceFolder) {
+		this.#workspaceFolder = workspaceFolder;
+		this.#compileCommandsWatcher = createFileSystemWatcher(
+			getCompileCommandsPath(workspaceFolder),
+			() => this.updateRealCompileCommandsWatcher());
+		vscode.window.onDidChangeVisibleTextEditors(
+			() => setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType));
+	}
+
+	private updateRealCompileCommandsWatcher() {
+		const realCompileCommandsPath = getRealCompileCommandsPath(this.#workspaceFolder);
+		if (realCompileCommandsPath !== null) {
+			console.log("updating real compile commands path: " + realCompileCommandsPath);
+			this.#realCompileCommandsWatcher.set(createFileSystemWatcher(
+				realCompileCommandsPath, () => this.updateSuFileWatchers()
+			));
+		} else {
+			console.log("compile_commands.json does not exist");
+			this.#realCompileCommandsWatcher.dispose();
+			this.#suFileWatchers.dispose();
+			this.#db.clear();
+			setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType);
+		}
+	}
+
+	private updateSuFileWatchers() {
+		const realCompileCommandsPath = getRealCompileCommandsPath(this.#workspaceFolder);
+		console.log("realCompileCommandsPath = " + realCompileCommandsPath);
+		this.#db.clear();
+		if (realCompileCommandsPath !== null && fs.existsSync(realCompileCommandsPath)) {
+			console.log("processing " + realCompileCommandsPath);
+			this.#suFileWatchers.set(registerSuFileWatchers(realCompileCommandsPath, this.#db, this.#decorationType));
+		} else {
+			console.error(realCompileCommandsPath + " is not existing!");
+		}
+		setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType);
+	}
+
+	dispose() {
+		this.#compileCommandsWatcher.dispose();
+		this.#realCompileCommandsWatcher?.dispose();
+		this.#suFileWatchers.dispose();
+	}
+}
+
+export function activate(context: vscode.ExtensionContext) {
+	vscode.workspace.workspaceFolders?.forEach(workspaceFolder => {
+		console.log(workspaceFolder.uri.fsPath);
+		context.subscriptions.push(new WorkspaceHandler(workspaceFolder));
 	});
 }
 

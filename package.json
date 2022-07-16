@@ -1,5 +1,5 @@
 {
-  "name": "stack-usage",
+	"name": "stack-usage",
 	"displayName": "stack-usage",
 	"description": "Measure stack usage",
 	"version": "0.0.1",
@@ -10,7 +10,7 @@
 		"Other"
 	],
 	"activationEvents": [
-        "onCommand:stack-usage.helloWorld"
+		"onLanguage:cpp"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
