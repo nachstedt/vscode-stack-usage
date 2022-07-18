@@ -16,7 +16,8 @@
         "eqeqeq": "warn",
         "no-throw-literal": "warn",
         "semi": "off",
-        "prettier/prettier": "error"
+        "prettier/prettier": "error",
+        "sort-imports": "warn"
     },
     "extends": [
         "eslint:recommended",

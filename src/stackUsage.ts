@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { setStackUsageDecorationsToVisibleEditors } from './decorations';
 import { createFileSystemWatcher } from './fileSystem';
+import { setStackUsageDecorationsToVisibleEditors } from './decorations';
 
 export class StackUsageDb {
   #data: StackUsageDbEntry[] = [];

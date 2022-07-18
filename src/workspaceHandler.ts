@@ -1,14 +1,14 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
 
-import { DisposableSlot, DisposableContainer } from './disposables';
+import { DisposableContainer, DisposableSlot } from './disposables';
+import { StackUsageDb, registerSuFileProcessors } from './stackUsage';
+import { createFileSystemWatcher, getRealPath } from './fileSystem';
 import {
   makeDecorationType,
   setStackUsageDecorationsToVisibleEditors
 } from './decorations';
-import { createFileSystemWatcher, getRealPath } from './fileSystem';
-import { StackUsageDb, registerSuFileProcessors } from './stackUsage';
 
 export class WorkspaceHandler {
   #workspaceFolder: vscode.WorkspaceFolder;
