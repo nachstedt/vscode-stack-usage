@@ -1,7 +1,7 @@
 {
 	"name": "stack-usage",
 	"displayName": "stack-usage",
-	"description": "Measure stack usage",
+	"description": "Display gcc stack usage information",
 	"version": "0.0.1",
 	"engines": {
 		"vscode": "^1.68.0"
@@ -13,14 +13,6 @@
 		"onLanguage:cpp"
 	],
 	"main": "./out/extension.js",
-	"contributes": {
-		"commands": [
-			{
-				"command": "stack-usage.helloWorld",
-				"title": "Hello World"
-			}
-		]
-	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
