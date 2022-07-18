@@ -7,7 +7,7 @@ import {
   makeDecorationType,
   setStackUsageDecorationsToVisibleEditors
 } from './decorations';
-import { createFileSystemWatcher } from './fileSystem';
+import { createFileSystemWatcher, getRealPath } from './fileSystem';
 import { StackUsageDb, registerSuFileProcessors } from './stackUsage';
 
 export class WorkspaceHandler {
@@ -85,32 +85,11 @@ export class WorkspaceHandler {
 function getRealCompileCommandsPath(
   workspaceFolder: vscode.WorkspaceFolder
 ): string | null {
-  const compileCommandsPath = getCompileCommandsPath(workspaceFolder);
-  try {
-    return path.resolve(
-      path.dirname(compileCommandsPath),
-      fs.readlinkSync(compileCommandsPath)
-    );
-  } catch (error) {
-    if (isError(error)) {
-      if (error.code === 'ENOENT') {
-        // File does not exist.
-        return null;
-      } else if (error.code === 'EINVAL') {
-        // Files is not a symbolic link.
-        return compileCommandsPath;
-      }
-    }
-    throw error;
-  }
+  return getRealPath(getCompileCommandsPath(workspaceFolder));
 }
 
 function getCompileCommandsPath(
   workspaceFolder: vscode.WorkspaceFolder
 ): string {
   return path.join(workspaceFolder.uri.fsPath, 'compile_commands.json');
-}
-
-function isError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error;
 }
