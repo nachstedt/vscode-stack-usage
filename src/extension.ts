@@ -10,9 +10,6 @@ export function activate(context: vscode.ExtensionContext) {
   });
 }
 
-// this method is called when your extension is deactivated
-export function deactivate() {}
-
 class WorkspaceHandler {
   #workspaceFolder: vscode.WorkspaceFolder;
   #db: StackUsageDb = new StackUsageDb();
@@ -165,7 +162,7 @@ function registerSuFileWatchers(
   db: StackUsageDb,
   decorationType: vscode.TextEditorDecorationType
 ): vscode.Disposable[] {
-  let watchers: vscode.Disposable[] = [];
+  const watchers: vscode.Disposable[] = [];
   readCompileCommandsFromFile(filePath).forEach((entry) => {
     const suFileName = getSuFileName(entry);
     if (suFileName !== null) {
@@ -187,7 +184,10 @@ function readCompileCommandsFromFile(path: string): CompileCommand[] {
 
 function getSuFileName(compileCommand: CompileCommand): string | null {
   const outputNameRegex = /.+-o (.+)\.o.+/;
-  const match = outputNameRegex.exec(compileCommand.command)!;
+  const match = outputNameRegex.exec(compileCommand.command);
+  if (match === null) {
+    return null;
+  }
   const outputName = match[1];
   const suFileName = path.join(compileCommand.directory, outputName) + '.su';
   return suFileName;
@@ -243,7 +243,7 @@ function setStackUsageDecorationsToEditor(
   decorationType: vscode.TextEditorDecorationType
 ) {
   if (editor.document.languageId === 'cpp') {
-	const entries = db.getDataForFile(editor.document.uri.path);
+    const entries = db.getDataForFile(editor.document.uri.path);
     const decorations = makeDecorations(entries, editor.document);
     editor.setDecorations(decorationType, decorations);
   }
@@ -270,7 +270,7 @@ function createFileSystemWatcher(
   listener: () => void
 ): vscode.FileSystemWatcher {
   console.log('Creating file system watcher for ' + path);
-  let watcher = vscode.workspace.createFileSystemWatcher(
+  const watcher = vscode.workspace.createFileSystemWatcher(
     path,
     false,
     false,
@@ -312,6 +312,6 @@ function getCompileCommandsPath(
   return path.join(workspaceFolder.uri.fsPath, 'compile_commands.json');
 }
 
-function isError(error: any): error is NodeJS.ErrnoException {
+function isError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error;
 }
