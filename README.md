@@ -1,6 +1,6 @@
 # Stack Usage
 
-This Visual Studio Code extension allows you to display the per function stack usage analysis information produced by gcc next to the respective implementation.
+This Visual Studio Code extension allows you to display the per function stack usage analysis information produced by gcc for c++ projects next to the respective implementation.
 
 ## Features
 

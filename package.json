@@ -1,6 +1,6 @@
 {
 	"name": "stack-usage",
-	"displayName": "stack-usage",
+	"displayName": "Stack Usage",
 	"description": "Display gcc stack usage information",
 	"version": "0.0.1",
 	"engines": {
