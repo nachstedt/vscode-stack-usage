@@ -9,6 +9,11 @@
 	"categories": [
 		"Other"
 	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/nachstedt/vscode-stack-usage.git"
+	},
+	"icon": "images/icon.png",
 	"activationEvents": [
 		"onLanguage:cpp"
 	],
