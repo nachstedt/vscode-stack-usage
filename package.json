@@ -3,7 +3,7 @@
 	"displayName": "Stack Usage",
 	"description": "Display gcc stack usage information.",
 	"version": "0.0.1",
-	"publisher": "Timo Nachstedt",
+	"publisher": "TimoNachstedt",
 	"engines": {
 		"vscode": "^1.68.0"
 	},
