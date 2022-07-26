@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 
 import { StackUsageDb, StackUsageDbEntry } from './stackUsage';
@@ -25,7 +26,9 @@ function setStackUsageDecorationsToEditor(
   decorationType: vscode.TextEditorDecorationType
 ) {
   if (editor.document.languageId === 'cpp') {
-    const entries = db.getDataForFile(editor.document.uri.path);
+    const entries = db.getDataForFile(
+      fs.realpathSync(editor.document.uri.path)
+    );
     const decorations = makeDecorations(entries, editor.document);
     editor.setDecorations(decorationType, decorations);
   }

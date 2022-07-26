@@ -103,7 +103,7 @@ function readSuFile(path: string): SuFileEntry[] {
     .map((parts: string[]) => {
       const functionId = parts[0].split(':');
       return {
-        path: functionId[0],
+        path: fs.realpathSync(functionId[0]),
         line: +functionId[1],
         col: +functionId[2],
         functionSignature: functionId[3],
