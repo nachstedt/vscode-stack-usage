@@ -100,6 +100,9 @@ function processSuFile(
 
 function readSuFile(path: string): SuFileEntry[] {
   console.log('reading su file: ' + path);
+  const functionIdRegex =
+    /(?<path>.*):(?<line>\d*):(?<column>\d*):(?<signature>.*)/;
+
   try {
     return fs
       .readFileSync(path, 'utf8')
@@ -107,12 +110,15 @@ function readSuFile(path: string): SuFileEntry[] {
       .map((line: string) => line.split('\t'))
       .filter((parts: string[]) => parts.length === 3)
       .map((parts: string[]) => {
-        const functionId = parts[0].split(':');
+        const result = functionIdRegex.exec(parts[0]);
+        if (result === null || result.groups === undefined) {
+          throw Error('functionIdRegex failed');
+        }
         return {
-          path: fs.realpathSync(functionId[0]),
-          line: +functionId[1],
-          col: +functionId[2],
-          functionSignature: functionId[3],
+          path: fs.realpathSync(result.groups.path),
+          line: +result.groups.line,
+          col: +result.groups.column,
+          functionSignature: result.groups.signature,
           numberOfBytes: +parts[1],
           qualifiers: parts[2]
             .split(',')
