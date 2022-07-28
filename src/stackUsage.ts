@@ -100,25 +100,30 @@ function processSuFile(
 
 function readSuFile(path: string): SuFileEntry[] {
   console.log('reading su file: ' + path);
-  return fs
-    .readFileSync(path, 'utf8')
-    .split('\n')
-    .map((line: string) => line.split('\t'))
-    .filter((parts: string[]) => parts.length === 3)
-    .map((parts: string[]) => {
-      const functionId = parts[0].split(':');
-      return {
-        path: fs.realpathSync(functionId[0]),
-        line: +functionId[1],
-        col: +functionId[2],
-        functionSignature: functionId[3],
-        numberOfBytes: +parts[1],
-        qualifiers: parts[2]
-          .split(',')
-          .map(
-            (qualifierString) =>
-              Qualifier[qualifierString as keyof typeof Qualifier]
-          )
-      };
-    });
+  try {
+    return fs
+      .readFileSync(path, 'utf8')
+      .split('\n')
+      .map((line: string) => line.split('\t'))
+      .filter((parts: string[]) => parts.length === 3)
+      .map((parts: string[]) => {
+        const functionId = parts[0].split(':');
+        return {
+          path: fs.realpathSync(functionId[0]),
+          line: +functionId[1],
+          col: +functionId[2],
+          functionSignature: functionId[3],
+          numberOfBytes: +parts[1],
+          qualifiers: parts[2]
+            .split(',')
+            .map(
+              (qualifierString) =>
+                Qualifier[qualifierString as keyof typeof Qualifier]
+            )
+        };
+      });
+  } catch (err) {
+    console.log('reading su file ' + path + ' failed');
+    return [];
+  }
 }
