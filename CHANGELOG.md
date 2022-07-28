@@ -6,6 +6,8 @@ All notable changes to the extension are documented in this file.
 
 ## [Unreleased]
 
+## [0.1.1] - 2022-07-29
+
 - Bugfix: Support watching out-of-workspace builds.
 - Bugfix: Tolerate missing or corrupt .su files.
 - Bugfix: Correct parsing of function signatures with namespaces.
