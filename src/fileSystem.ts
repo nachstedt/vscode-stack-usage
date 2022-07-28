@@ -3,12 +3,13 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 export function createFileSystemWatcher(
-  path: string,
+  baseDirectory: string,
+  pattern: string,
   listener: () => void
 ): vscode.FileSystemWatcher {
-  console.log('Creating file system watcher for ' + path);
+  console.log('Creating watcher: ' + baseDirectory + ' / ' + pattern);
   const watcher = vscode.workspace.createFileSystemWatcher(
-    path,
+    new vscode.RelativePattern(baseDirectory, pattern),
     false,
     false,
     false

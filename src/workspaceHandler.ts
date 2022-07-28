@@ -21,7 +21,8 @@ export class WorkspaceHandler {
   constructor(workspaceFolder: vscode.WorkspaceFolder) {
     this.#workspaceFolder = workspaceFolder;
     this.#compileCommandsWatcher = createFileSystemWatcher(
-      getCompileCommandsPath(workspaceFolder),
+      workspaceFolder.uri.fsPath,
+      'compile_commands.json',
       () => this.updateRealCompileCommandsWatcher()
     );
     vscode.window.onDidChangeVisibleTextEditors(() =>
@@ -38,8 +39,10 @@ export class WorkspaceHandler {
         'updating real compile commands path: ' + realCompileCommandsPath
       );
       this.#realCompileCommandsWatcher.set(
-        createFileSystemWatcher(realCompileCommandsPath, () =>
-          this.updateSuFileWatchers()
+        createFileSystemWatcher(
+          path.dirname(realCompileCommandsPath),
+          path.basename(realCompileCommandsPath),
+          () => this.updateSuFileWatchers()
         )
       );
     } else {
@@ -55,7 +58,7 @@ export class WorkspaceHandler {
     const realCompileCommandsPath = getRealCompileCommandsPath(
       this.#workspaceFolder
     );
-    console.log('realCompileCommandsPath = ' + realCompileCommandsPath);
+    console.log('realCompileCommandsPath: ' + realCompileCommandsPath);
     this.#db.clear();
     if (
       realCompileCommandsPath !== null &&

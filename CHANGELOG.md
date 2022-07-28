@@ -6,7 +6,10 @@ All notable changes to the extension are documented in this file.
 
 ## [Unreleased]
 
+- Bugfix: Support watching out-of-workspace builds.
+
 ## [0.1.0] - 2022-07-26
+
 - Added support for symbolinc links both within the stack usage files as well as within the opened folder.
 
 ## [0.0.1] - 2022-07-25

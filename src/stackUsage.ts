@@ -42,17 +42,23 @@ enum Qualifier {
 }
 
 export function registerSuFileProcessors(
-  filePath: string,
+  compileCommandsPath: string,
   db: StackUsageDb,
   decorationType: vscode.TextEditorDecorationType
 ): vscode.Disposable[] {
+  const compileCommands = readCompileCommandsFromFile(compileCommandsPath);
   const watchers: vscode.Disposable[] = [];
-  readCompileCommandsFromFile(filePath).forEach((entry) => {
-    const suFileName = getSuFileName(entry);
-    if (suFileName !== null) {
+  compileCommands.forEach((entry) => {
+    const relativeSuFileName = getRelativeSuFileName(entry);
+    if (relativeSuFileName !== null) {
       watchers.push(
-        createFileSystemWatcher(suFileName, () =>
-          processSuFile(suFileName, entry.file, db, decorationType)
+        createFileSystemWatcher(entry.directory, relativeSuFileName, () =>
+          processSuFile(
+            path.join(entry.directory, relativeSuFileName),
+            entry.file,
+            db,
+            decorationType
+          )
         )
       );
     }
@@ -72,15 +78,14 @@ interface CompileCommand {
   file: string;
 }
 
-function getSuFileName(compileCommand: CompileCommand): string | null {
+function getRelativeSuFileName(compileCommand: CompileCommand): string | null {
   const outputNameRegex = /.+-o (.+)\.o.+/;
   const match = outputNameRegex.exec(compileCommand.command);
   if (match === null) {
     return null;
   }
   const outputName = match[1];
-  const suFileName = path.join(compileCommand.directory, outputName) + '.su';
-  return suFileName;
+  return outputName + '.su';
 }
 
 function processSuFile(
