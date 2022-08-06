@@ -6,6 +6,8 @@ All notable changes to the extension are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2022-08-06
+
 - The extension is now logging to a vscode output channel.
 - Optimized number of times that decorations are set to visible editors.
 
