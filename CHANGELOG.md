@@ -5,7 +5,9 @@ All notable changes to the extension are documented in this file.
 <!-- Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file. -->
 
 ## [Unreleased]
+
 - The extension is now logging to a vscode output channel.
+- Optimized number of times that decorations are set to visible editors.
 
 ## [0.1.1] - 2022-07-29
 

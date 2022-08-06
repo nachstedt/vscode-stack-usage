@@ -7,6 +7,7 @@ import { StackUsageDb, registerSuFileProcessors } from './stackUsage';
 import { createFileSystemWatcher, getRealPath } from './fileSystem';
 import {
   makeDecorationType,
+  setStackUsageDecorationsToEditor,
   setStackUsageDecorationsToVisibleEditors
 } from './decorations';
 import { log } from './logging';
@@ -26,9 +27,19 @@ export class WorkspaceHandler {
       'compile_commands.json',
       () => this.updateRealCompileCommandsWatcher()
     );
-    vscode.window.onDidChangeVisibleTextEditors(() =>
-      setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType)
-    );
+    let visibles: vscode.TextEditor[] = [...vscode.window.visibleTextEditors];
+    vscode.window.onDidChangeVisibleTextEditors((editors) => {
+      editors.forEach((editor) => {
+        if (!visibles.includes(editor)) {
+          setStackUsageDecorationsToEditor(
+            editor,
+            this.#db,
+            this.#decorationType
+          );
+        }
+      });
+      visibles = [...editors];
+    });
   }
 
   private updateRealCompileCommandsWatcher() {
@@ -71,8 +82,8 @@ export class WorkspaceHandler {
       );
     } else {
       log(`Not existing: ${realCompileCommandsPath}`);
+      setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType);
     }
-    setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType);
   }
 
   dispose() {

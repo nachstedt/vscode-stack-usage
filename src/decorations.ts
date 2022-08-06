@@ -14,27 +14,32 @@ export function makeDecorationType() {
 
 export function setStackUsageDecorationsToVisibleEditors(
   db: StackUsageDb,
-  decorationType: vscode.TextEditorDecorationType
+  decorationType: vscode.TextEditorDecorationType,
+  changedFiles?: string[]
 ) {
-  vscode.window.visibleTextEditors.forEach((editor) =>
-    setStackUsageDecorationsToEditor(editor, db, decorationType)
-  );
+  vscode.window.visibleTextEditors.forEach((editor) => {
+    setStackUsageDecorationsToEditor(editor, db, decorationType, changedFiles);
+  });
 }
 
-function setStackUsageDecorationsToEditor(
+export function setStackUsageDecorationsToEditor(
   editor: vscode.TextEditor,
   db: StackUsageDb,
-  decorationType: vscode.TextEditorDecorationType
+  decorationType: vscode.TextEditorDecorationType,
+  changedFiles?: string[]
 ) {
-  if (editor.document.languageId === 'cpp') {
-    const docPath = fs.realpathSync(editor.document.uri.path);
-
-    const entries = db.getDataForFile(docPath);
-    const numEntries = entries.length;
-    log(`Decorating ${docPath}: ${numEntries} (total: ${db.length()})`);
-    const decorations = makeDecorations(entries, editor.document);
-    editor.setDecorations(decorationType, decorations);
+  if (editor.document.languageId !== 'cpp') {
+    return;
   }
+  const docPath = fs.realpathSync(editor.document.uri.path);
+  if (changedFiles !== undefined && !changedFiles.includes(docPath)) {
+    return;
+  }
+  const entries = db.getDataForFile(docPath);
+  const numEntries = entries.length;
+  log(`Decorating ${docPath}: ${numEntries} (total: ${db.length()})`);
+  const decorations = makeDecorations(entries, editor.document);
+  editor.setDecorations(decorationType, decorations);
 }
 
 function makeDecorations(

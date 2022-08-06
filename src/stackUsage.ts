@@ -9,9 +9,18 @@ import { setStackUsageDecorationsToVisibleEditors } from './decorations';
 export class StackUsageDb {
   #data: StackUsageDbEntry[] = [];
 
-  addFromFile(entries: SuFileEntry[], source: string) {
+  addFromFile(entries: SuFileEntry[], source: string): string[] {
+    const affectedFiles = [
+      ...new Set(
+        this.#data
+          .filter((entry) => entry.source === source)
+          .map((entry) => entry.path)
+          .concat(entries.map((entry) => entry.path))
+      )
+    ];
     this.#data = this.#data.filter((entry) => entry.source !== source);
     entries.forEach((entry) => this.#data.push({ source: source, ...entry }));
+    return affectedFiles;
   }
 
   clear() {
@@ -101,8 +110,9 @@ function processSuFile(
   db: StackUsageDb,
   decorationType: vscode.TextEditorDecorationType
 ) {
-  db.addFromFile(readSuFile(suFileName), sourceName);
-  setStackUsageDecorationsToVisibleEditors(db, decorationType);
+  const entries = readSuFile(suFileName);
+  const affectedFiles = db.addFromFile(entries, sourceName);
+  setStackUsageDecorationsToVisibleEditors(db, decorationType, affectedFiles);
 }
 
 function readSuFile(path: string): SuFileEntry[] {
