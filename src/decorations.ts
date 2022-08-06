@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 
 import { StackUsageDb, StackUsageDbEntry } from './stackUsage';
+import { log } from './logging';
 
 export function makeDecorationType() {
   return vscode.window.createTextEditorDecorationType({
@@ -26,9 +27,11 @@ function setStackUsageDecorationsToEditor(
   decorationType: vscode.TextEditorDecorationType
 ) {
   if (editor.document.languageId === 'cpp') {
-    const entries = db.getDataForFile(
-      fs.realpathSync(editor.document.uri.path)
-    );
+    const docPath = fs.realpathSync(editor.document.uri.path);
+
+    const entries = db.getDataForFile(docPath);
+    const numEntries = entries.length;
+    log(`Decorating ${docPath}: ${numEntries} (total: ${db.length()})`);
     const decorations = makeDecorations(entries, editor.document);
     editor.setDecorations(decorationType, decorations);
   }

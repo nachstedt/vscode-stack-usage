@@ -2,21 +2,32 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { debug } from './logging';
+
 export function createFileSystemWatcher(
   baseDirectory: string,
   pattern: string,
   listener: () => void
 ): vscode.FileSystemWatcher {
-  console.log('Creating watcher: ' + baseDirectory + ' / ' + pattern);
+  debug(`Creating watcher: ${baseDirectory}/${pattern}`);
   const watcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(baseDirectory, pattern),
     false,
     false,
     false
   );
-  watcher.onDidChange(listener);
-  watcher.onDidCreate(listener);
-  watcher.onDidDelete(listener);
+  watcher.onDidChange(() => {
+    debug(`changed: ${baseDirectory}/${pattern}`);
+    listener();
+  });
+  watcher.onDidCreate(() => {
+    debug(`created: ${baseDirectory}/${pattern}`);
+    listener();
+  });
+  watcher.onDidDelete(() => {
+    debug(`deleted: ${baseDirectory}/${pattern}`);
+    listener();
+  });
   listener();
   return watcher;
 }

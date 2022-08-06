@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { createFileSystemWatcher } from './fileSystem';
+import { log } from './logging';
 import { setStackUsageDecorationsToVisibleEditors } from './decorations';
 
 export class StackUsageDb {
@@ -19,6 +20,10 @@ export class StackUsageDb {
 
   getDataForFile(path: string): StackUsageDbEntry[] {
     return this.#data.filter((entry) => entry.path === path);
+  }
+
+  length() {
+    return this.#data.length;
   }
 }
 
@@ -48,8 +53,10 @@ export function registerSuFileProcessors(
 ): vscode.Disposable[] {
   const compileCommands = readCompileCommandsFromFile(compileCommandsPath);
   const watchers: vscode.Disposable[] = [];
-  compileCommands.forEach((entry) => {
+  const numEntries = compileCommands.length;
+  compileCommands.forEach((entry, index) => {
     const relativeSuFileName = getRelativeSuFileName(entry);
+    log(`Processing entry ${index + 1}/${numEntries}:`);
     if (relativeSuFileName !== null) {
       watchers.push(
         createFileSystemWatcher(entry.directory, relativeSuFileName, () =>
@@ -99,7 +106,7 @@ function processSuFile(
 }
 
 function readSuFile(path: string): SuFileEntry[] {
-  console.log('reading su file: ' + path);
+  log(`Reading  ${path}`);
   const functionIdRegex =
     /(?<path>.*):(?<line>\d*):(?<column>\d*):(?<signature>.*)/;
 
@@ -129,7 +136,7 @@ function readSuFile(path: string): SuFileEntry[] {
         };
       });
   } catch (err) {
-    console.log('reading su file ' + path + ' failed');
+    log(`reading ${path} failed`);
     return [];
   }
 }

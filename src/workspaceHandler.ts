@@ -9,6 +9,7 @@ import {
   makeDecorationType,
   setStackUsageDecorationsToVisibleEditors
 } from './decorations';
+import { log } from './logging';
 
 export class WorkspaceHandler {
   #workspaceFolder: vscode.WorkspaceFolder;
@@ -35,9 +36,6 @@ export class WorkspaceHandler {
       this.#workspaceFolder
     );
     if (realCompileCommandsPath !== null) {
-      console.log(
-        'updating real compile commands path: ' + realCompileCommandsPath
-      );
       this.#realCompileCommandsWatcher.set(
         createFileSystemWatcher(
           path.dirname(realCompileCommandsPath),
@@ -46,7 +44,7 @@ export class WorkspaceHandler {
         )
       );
     } else {
-      console.log('compile_commands.json does not exist');
+      log('compile_commands.json does not exist');
       this.#realCompileCommandsWatcher.dispose();
       this.#suFileWatchers.dispose();
       this.#db.clear();
@@ -58,13 +56,12 @@ export class WorkspaceHandler {
     const realCompileCommandsPath = getRealCompileCommandsPath(
       this.#workspaceFolder
     );
-    console.log('realCompileCommandsPath: ' + realCompileCommandsPath);
     this.#db.clear();
     if (
       realCompileCommandsPath !== null &&
       fs.existsSync(realCompileCommandsPath)
     ) {
-      console.log('processing ' + realCompileCommandsPath);
+      log(`Reading .su files from ${realCompileCommandsPath}`);
       this.#suFileWatchers.set(
         registerSuFileProcessors(
           realCompileCommandsPath,
@@ -73,7 +70,7 @@ export class WorkspaceHandler {
         )
       );
     } else {
-      console.error('real compile commands path is not existing!');
+      log(`Not existing: ${realCompileCommandsPath}`);
     }
     setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType);
   }
