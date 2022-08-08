@@ -10,7 +10,7 @@ import {
   setStackUsageDecorationsToEditor,
   setStackUsageDecorationsToVisibleEditors
 } from './decorations';
-import { log } from './logging';
+import { info } from './logging';
 
 export class WorkspaceHandler {
   #workspaceFolder: vscode.WorkspaceFolder;
@@ -55,7 +55,7 @@ export class WorkspaceHandler {
         )
       );
     } else {
-      log('compile_commands.json does not exist');
+      info('compile_commands.json does not exist');
       this.#realCompileCommandsWatcher.dispose();
       this.#suFileWatchers.dispose();
       this.#db.clear();
@@ -72,7 +72,7 @@ export class WorkspaceHandler {
       realCompileCommandsPath !== null &&
       fs.existsSync(realCompileCommandsPath)
     ) {
-      log(`Reading .su files from ${realCompileCommandsPath}`);
+      info(`Reading .su files from ${realCompileCommandsPath}`);
       this.#suFileWatchers.set(
         registerSuFileProcessors(
           realCompileCommandsPath,
@@ -81,7 +81,7 @@ export class WorkspaceHandler {
         )
       );
     } else {
-      log(`Not existing: ${realCompileCommandsPath}`);
+      info(`Not existing: ${realCompileCommandsPath}`);
       setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType);
     }
   }

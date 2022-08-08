@@ -2,12 +2,16 @@ import * as vscode from 'vscode';
 
 const outputChannel = vscode.window.createOutputChannel('Stack Usage');
 
-export function log(message: string) {
-  outputChannel.appendLine(`${now()} | INFO  | ${message}`);
+export function info(message: string) {
+  outputChannel.appendLine(`${now()} | INFO    | ${message}`);
 }
 
 export function debug(message: string) {
-  outputChannel.appendLine(`${now()} | DEBUG | ${message}`);
+  outputChannel.appendLine(`${now()} | DEBUG   | ${message}`);
+}
+
+export function warning(message: string) {
+  outputChannel.appendLine(`${now()} | WARNING | ${message}`);
 }
 
 function now() {

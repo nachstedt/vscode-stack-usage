@@ -2,24 +2,18 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { debug, info, warning } from './logging';
 import { createFileSystemWatcher } from './fileSystem';
-import { log } from './logging';
 import { setStackUsageDecorationsToVisibleEditors } from './decorations';
 
 export class StackUsageDb {
   #data: StackUsageDbEntry[] = [];
 
   addFromFile(entries: SuFileEntry[], source: string): string[] {
-    const affectedFiles = [
-      ...new Set(
-        this.#data
-          .filter((entry) => entry.source === source)
-          .map((entry) => entry.path)
-          .concat(entries.map((entry) => entry.path))
-      )
-    ];
-    this.#data = this.#data.filter((entry) => entry.source !== source);
-    entries.forEach((entry) => this.#data.push({ source: source, ...entry }));
+    const affectedFiles = getFilesAffectedByUpdate(this.#data, entries, source);
+    debug('Affected files: ' + affectedFiles);
+    this.#data = removeBySource(this.#data, source);
+    addInPlace(this.#data, entries, source);
     return affectedFiles;
   }
 
@@ -28,12 +22,64 @@ export class StackUsageDb {
   }
 
   getDataForFile(path: string): StackUsageDbEntry[] {
-    return this.#data.filter((entry) => entry.path === path);
+    return filterByPath(this.#data, path);
   }
 
   length() {
     return this.#data.length;
   }
+}
+
+function getFilesAffectedByUpdate(
+  dbData: StackUsageDbEntry[],
+  newEntries: SuFileEntry[],
+  source: string
+): string[] {
+  const oldFiles = getPathsForSource(dbData, source);
+  const newFiles = getPaths(newEntries);
+  const allFiles = convertToList(makeUnion(oldFiles, newFiles));
+  return allFiles;
+}
+
+function convertToList(set: Set<string>) {
+  return [...set];
+}
+
+function makeUnion(lhs: Set<string>, rhs: Set<string>) {
+  return new Set([...lhs, ...rhs]);
+}
+
+function getPathsForSource(entries: StackUsageDbEntry[], source: string) {
+  return getPaths(filterBySource(entries, source));
+}
+
+function getPaths(entries: StackUsageDbEntry[] | SuFileEntry[]) {
+  return new Set(entries.map((entry) => entry.path));
+}
+function filterBySource(
+  entries: StackUsageDbEntry[],
+  source: string
+): StackUsageDbEntry[] {
+  return entries.filter((entry) => entry.source === source);
+}
+
+function removeBySource(entries: StackUsageDbEntry[], source: string) {
+  return entries.filter((entry) => entry.source !== source);
+}
+
+function addInPlace(
+  dbEntries: StackUsageDbEntry[],
+  newEntries: SuFileEntry[],
+  source: string
+) {
+  newEntries.forEach((entry) => dbEntries.push({ source: source, ...entry }));
+}
+
+function filterByPath(
+  entries: StackUsageDbEntry[],
+  path: string
+): StackUsageDbEntry[] {
+  return entries.filter((entry) => entry.path === path);
 }
 
 export interface StackUsageDbEntry extends SuFileEntry {
@@ -61,25 +107,7 @@ export function registerSuFileProcessors(
   decorationType: vscode.TextEditorDecorationType
 ): vscode.Disposable[] {
   const compileCommands = readCompileCommandsFromFile(compileCommandsPath);
-  const watchers: vscode.Disposable[] = [];
-  const numEntries = compileCommands.length;
-  compileCommands.forEach((entry, index) => {
-    const relativeSuFileName = getRelativeSuFileName(entry);
-    log(`Processing entry ${index + 1}/${numEntries}:`);
-    if (relativeSuFileName !== null) {
-      watchers.push(
-        createFileSystemWatcher(entry.directory, relativeSuFileName, () =>
-          processSuFile(
-            path.join(entry.directory, relativeSuFileName),
-            entry.file,
-            db,
-            decorationType
-          )
-        )
-      );
-    }
-  });
-  return watchers;
+  return createSuFileWatchers(compileCommands, db, decorationType);
 }
 
 function readCompileCommandsFromFile(path: string): CompileCommand[] {
@@ -104,6 +132,42 @@ function getRelativeSuFileName(compileCommand: CompileCommand): string | null {
   return outputName + '.su';
 }
 
+function createSuFileWatchers(
+  compileCommands: CompileCommand[],
+  db: StackUsageDb,
+  decorationType: vscode.TextEditorDecorationType
+) {
+  const watchers: vscode.Disposable[] = [];
+  const numEntries = compileCommands.length;
+  compileCommands.forEach((entry, index) => {
+    info(`Processing entry ${index + 1}/${numEntries}:`);
+    const watcher = createSuFileWatcher(entry, db, decorationType);
+    if (watcher !== null) {
+      watchers.push(watcher);
+    }
+  });
+  return watchers;
+}
+
+function createSuFileWatcher(
+  entry: CompileCommand,
+  db: StackUsageDb,
+  decorationType: vscode.TextEditorDecorationType
+) {
+  const relativeSuFileName = getRelativeSuFileName(entry);
+  if (relativeSuFileName === null) {
+    return null;
+  }
+  return createFileSystemWatcher(entry.directory, relativeSuFileName, () =>
+    processSuFile(
+      path.join(entry.directory, relativeSuFileName),
+      entry.file,
+      db,
+      decorationType
+    )
+  );
+}
+
 function processSuFile(
   suFileName: string,
   sourceName: string,
@@ -116,37 +180,70 @@ function processSuFile(
 }
 
 function readSuFile(path: string): SuFileEntry[] {
-  log(`Reading  ${path}`);
+  info(`Reading  ${path}`);
+  const lines = fs.readFileSync(path, 'utf8').split('\n');
+  const optionalEntries = lines.map(readSuFileLine);
+  return removeNullEntries(optionalEntries);
+}
+
+function readSuFileLine(line: string): SuFileEntry | null {
+  line = line.trim();
+  if (line.length === 0) {
+    return null;
+  }
+  const parts = line.split('\t');
+  if (parts.length !== 3) {
+    warning(`malformed entry: ${line}`);
+    return null;
+  }
+  const functionId = parseFunctionId(parts[0]);
+  const numberOfBytes = +parts[1];
+  const qualifiers = extractQualifiers(parts[2]);
+  if (functionId === null) {
+    warning(`function id parsing failed: ${parts[0]}`);
+    return null;
+  }
+
+  return {
+    path: fs.realpathSync(functionId.path),
+    line: functionId.line,
+    col: functionId.column,
+    functionSignature: functionId.signature,
+    numberOfBytes: numberOfBytes,
+    qualifiers: qualifiers
+  };
+}
+
+function parseFunctionId(functionIdString: string) {
   const functionIdRegex =
     /(?<path>.*):(?<line>\d*):(?<column>\d*):(?<signature>.*)/;
-
-  try {
-    return fs
-      .readFileSync(path, 'utf8')
-      .split('\n')
-      .map((line: string) => line.split('\t'))
-      .filter((parts: string[]) => parts.length === 3)
-      .map((parts: string[]) => {
-        const result = functionIdRegex.exec(parts[0]);
-        if (result === null || result.groups === undefined) {
-          throw Error('functionIdRegex failed');
-        }
-        return {
-          path: fs.realpathSync(result.groups.path),
-          line: +result.groups.line,
-          col: +result.groups.column,
-          functionSignature: result.groups.signature,
-          numberOfBytes: +parts[1],
-          qualifiers: parts[2]
-            .split(',')
-            .map(
-              (qualifierString) =>
-                Qualifier[qualifierString as keyof typeof Qualifier]
-            )
-        };
-      });
-  } catch (err) {
-    log(`reading ${path} failed`);
-    return [];
+  const result = functionIdRegex.exec(functionIdString);
+  if (result === null || result.groups === undefined) {
+    return null;
   }
+  return {
+    path: result.groups.path,
+    line: +result.groups.line,
+    column: +result.groups.column,
+    signature: result.groups.signature
+  };
+}
+
+function extractQualifiers(qualifierStringList: string) {
+  const singleStrings = qualifierStringList.split(',');
+  return singleStrings.map(convertToQualifier);
+}
+
+function convertToQualifier(qualifierString: string) {
+  return Qualifier[qualifierString as keyof typeof Qualifier];
+}
+
+function removeNullEntries(entries: (SuFileEntry | null)[]): SuFileEntry[] {
+  const filteredEntries: SuFileEntry[] = [];
+  for (const entry of entries) {
+    if (entry !== null) {
+      filteredEntries.push(entry);
+    }
+  }
+  return filteredEntries;
 }

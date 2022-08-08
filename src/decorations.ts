@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 
 import { StackUsageDb, StackUsageDbEntry } from './stackUsage';
-import { log } from './logging';
+import { info } from './logging';
 
 export function makeDecorationType() {
   return vscode.window.createTextEditorDecorationType({
@@ -37,7 +37,7 @@ export function setStackUsageDecorationsToEditor(
   }
   const entries = db.getDataForFile(docPath);
   const numEntries = entries.length;
-  log(`Decorating ${docPath}: ${numEntries} (total: ${db.length()})`);
+  info(`Decorating ${docPath}: ${numEntries} (total: ${db.length()})`);
   const decorations = makeDecorations(entries, editor.document);
   editor.setDecorations(decorationType, decorations);
 }
