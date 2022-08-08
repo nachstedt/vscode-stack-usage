@@ -6,6 +6,8 @@ All notable changes to the extension are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.1] - 2022-08-08
+
 - Internal refactoring.
 - Slightly improved logging.
 
