@@ -2,7 +2,7 @@
 	"name": "stack-usage",
 	"displayName": "Stack Usage",
 	"description": "Display gcc stack usage information.",
-	"version": "0.2.1",
+	"version": "0.3.0",
 	"publisher": "TimoNachstedt",
 	"engines": {
 		"vscode": "^1.68.0"
