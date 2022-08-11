@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { StackUsageDb, StackUsageDbEntry } from './stackUsage';
@@ -31,15 +32,67 @@ export function setStackUsageDecorationsToEditor(
   if (editor.document.languageId !== 'cpp') {
     return;
   }
-  const docPath = fs.realpathSync(editor.document.uri.path);
-  if (changedFiles !== undefined && !changedFiles.includes(docPath)) {
+  if (!documentNeedsUpdate(editor.document, changedFiles)) {
     return;
   }
-  const entries = db.getDataForFile(docPath);
-  const numEntries = entries.length;
-  info(`Decorating ${docPath}: ${numEntries} (total: ${db.length()})`);
+  const entries = getEntriesForDocument(db, editor.document);
+  const docPath = editor.document.uri.path;
+  info(`Decorating ${docPath}: ${entries.length} (total: ${db.length()})`);
   const decorations = makeDecorations(entries, editor.document);
   editor.setDecorations(decorationType, decorations);
+}
+
+function documentNeedsUpdate(
+  document: vscode.TextDocument,
+  changedFiles?: string[]
+): boolean {
+  const docPath = fs.realpathSync(document.uri.path);
+  const docFileName = path.basename(docPath);
+  info('changed files: ' + changedFiles);
+  return (
+    changedFiles === undefined ||
+    changedFiles.includes(docPath) ||
+    changedFiles.includes(docFileName)
+  );
+}
+
+function getEntriesForDocument(
+  db: StackUsageDb,
+  document: vscode.TextDocument
+) {
+  const docPath = fs.realpathSync(document.uri.path);
+  const entries = db.getDataForFile(docPath);
+  const docFileName = path.basename(docPath);
+  const maybeEntries = db.getDataForFile(docFileName);
+  entries.push(...verifyEntries(maybeEntries, document));
+  return entries;
+}
+
+function verifyEntries(
+  candidates: StackUsageDbEntry[],
+  document: vscode.TextDocument
+): StackUsageDbEntry[] {
+  return candidates.filter((entry) => entryFitsToDocument(entry, document));
+}
+
+function entryFitsToDocument(
+  entry: StackUsageDbEntry,
+  document: vscode.TextDocument
+) {
+  const functionName = extractNameFromSignature(entry.functionSignature);
+  if (document.lineCount <= entry.line - 1) {
+    return false;
+  }
+  return document.lineAt(entry.line - 1).text.includes(functionName);
+}
+
+function extractNameFromSignature(functionSignature: string): string {
+  const firstBracket = functionSignature.indexOf('(');
+  const partBeforeBracket = functionSignature.slice(0, firstBracket);
+  const firstSpace = partBeforeBracket.indexOf(' ');
+  const lastColon = partBeforeBracket.lastIndexOf(':');
+  const nameStart = (firstSpace > lastColon ? firstSpace : lastColon) + 1;
+  return partBeforeBracket.slice(nameStart);
 }
 
 function makeDecorations(

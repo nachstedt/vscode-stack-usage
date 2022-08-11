@@ -175,15 +175,21 @@ function processSuFile(
   decorationType: vscode.TextEditorDecorationType
 ) {
   const entries = readSuFile(suFileName);
+  fixIncompleteCppPaths(entries, fs.realpathSync(sourceName));
   const affectedFiles = db.addFromFile(entries, sourceName);
   setStackUsageDecorationsToVisibleEditors(db, decorationType, affectedFiles);
 }
 
 function readSuFile(path: string): SuFileEntry[] {
   info(`Reading  ${path}`);
-  const lines = fs.readFileSync(path, 'utf8').split('\n');
-  const optionalEntries = lines.map(readSuFileLine);
-  return removeNullEntries(optionalEntries);
+  try {
+    const fileContent = fs.readFileSync(path, 'utf8');
+    const lines = fileContent.split('\n');
+    return removeNullEntries(lines.map((line) => readSuFileLine(line)));
+  } catch (error) {
+    warning(`Could not read ${path}: ${error}`);
+    return [];
+  }
 }
 
 function readSuFileLine(line: string): SuFileEntry | null {
@@ -203,15 +209,22 @@ function readSuFileLine(line: string): SuFileEntry | null {
     warning(`function id parsing failed: ${parts[0]}`);
     return null;
   }
-
+  functionId.path = makeRealIfPath(functionId.path);
   return {
-    path: fs.realpathSync(functionId.path),
+    path: functionId.path,
     line: functionId.line,
     col: functionId.column,
     functionSignature: functionId.signature,
     numberOfBytes: numberOfBytes,
     qualifiers: qualifiers
   };
+}
+
+function makeRealIfPath(filePath: string) {
+  if (filePath.includes(path.sep)) {
+    return fs.realpathSync(filePath);
+  }
+  return filePath;
 }
 
 function parseFunctionId(functionIdString: string) {
@@ -246,4 +259,12 @@ function removeNullEntries(entries: (SuFileEntry | null)[]): SuFileEntry[] {
     }
   }
   return filteredEntries;
+}
+
+function fixIncompleteCppPaths(entries: SuFileEntry[], replacePath: string) {
+  entries.forEach((entry) => {
+    if (entry.path.endsWith('cpp') && !entry.path.includes(path.sep)) {
+      entry.path = replacePath;
+    }
+  });
 }
