@@ -174,7 +174,7 @@ function processSuFile(
   decorationType: vscode.TextEditorDecorationType
 ) {
   const entries = readSuFile(suFileName);
-  fixIncompleteCppPaths(entries, fs.realpathSync(sourceName));
+  fixIncompleteCppPaths(entries, sourceName);
   const affectedFiles = db.addFromFile(entries, sourceName);
   debug('Affected files: ' + affectedFiles);
   setStackUsageDecorationsToVisibleEditors(db, decorationType, affectedFiles);
@@ -289,6 +289,7 @@ function fixIncompleteCppPaths(entries: SuFileEntry[], replacePath: string) {
   entries.forEach((entry) => {
     if (entry.path.endsWith('cpp') && !entry.path.includes(path.sep)) {
       entry.path = replacePath;
+      debug(`fixed incomplete cpp path: ${JSON.stringify(entry)}`);
     }
   });
 }

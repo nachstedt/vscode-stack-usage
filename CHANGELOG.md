@@ -6,7 +6,8 @@ All notable changes to the extension are documented in this file.
 
 ## [Unreleased]
 
-- Adding verbose debug output during su file reading to understand individual problems better.
+- Added verbose debug output during su file reading to understand individual problems better.
+- Removed real path lookup for source files before fixing incomplete path entries (GCC<10).
 
 ## [0.3.0] - 2022-08-11
 
