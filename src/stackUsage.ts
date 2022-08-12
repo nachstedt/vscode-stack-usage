@@ -11,7 +11,6 @@ export class StackUsageDb {
 
   addFromFile(entries: SuFileEntry[], source: string): string[] {
     const affectedFiles = getFilesAffectedByUpdate(this.#data, entries, source);
-    debug('Affected files: ' + affectedFiles);
     this.#data = removeBySource(this.#data, source);
     addInPlace(this.#data, entries, source);
     return affectedFiles;
@@ -177,6 +176,7 @@ function processSuFile(
   const entries = readSuFile(suFileName);
   fixIncompleteCppPaths(entries, fs.realpathSync(sourceName));
   const affectedFiles = db.addFromFile(entries, sourceName);
+  debug('Affected files: ' + affectedFiles);
   setStackUsageDecorationsToVisibleEditors(db, decorationType, affectedFiles);
 }
 
@@ -185,7 +185,10 @@ function readSuFile(path: string): SuFileEntry[] {
   try {
     const fileContent = fs.readFileSync(path, 'utf8');
     const lines = fileContent.split('\n');
-    return removeNullEntries(lines.map((line) => readSuFileLine(line)));
+    debug(`Lines to process: ${lines.length}`);
+    const entries = lines.map(readSuFileLine);
+    debug('All lines processed.');
+    return removeNullEntries(entries);
   } catch (error) {
     warning(`Could not read ${path}: ${error}`);
     return [];
@@ -193,8 +196,10 @@ function readSuFile(path: string): SuFileEntry[] {
 }
 
 function readSuFileLine(line: string): SuFileEntry | null {
+  debug(`Reading line: "${line}"`);
   line = line.trim();
   if (line.length === 0) {
+    debug('-> lines is empty');
     return null;
   }
   const parts = line.split('\t');
@@ -203,21 +208,18 @@ function readSuFileLine(line: string): SuFileEntry | null {
     return null;
   }
   const functionId = parseFunctionId(parts[0]);
+  debug(`-> function id: ${JSON.stringify(functionId)}`);
   const numberOfBytes = +parts[1];
+  debug(`-> number of bytes: ${numberOfBytes}`);
   const qualifiers = extractQualifiers(parts[2]);
+  debug(`-> qualifiers: ${qualifiers}`);
   if (functionId === null) {
     warning(`function id parsing failed: ${parts[0]}`);
     return null;
   }
   functionId.path = makeRealIfPath(functionId.path);
-  return {
-    path: functionId.path,
-    line: functionId.line,
-    col: functionId.column,
-    functionSignature: functionId.signature,
-    numberOfBytes: numberOfBytes,
-    qualifiers: qualifiers
-  };
+  debug(`-> real path: ${functionId.path}`);
+  return makeSuFileEntry(functionId, numberOfBytes, qualifiers);
 }
 
 function makeRealIfPath(filePath: string) {
@@ -227,7 +229,14 @@ function makeRealIfPath(filePath: string) {
   return filePath;
 }
 
-function parseFunctionId(functionIdString: string) {
+interface FunctionId {
+  path: string;
+  line: number;
+  column: number;
+  signature: string;
+}
+
+function parseFunctionId(functionIdString: string): FunctionId | null {
   const functionIdRegex =
     /(?<path>.*):(?<line>\d*):(?<column>\d*):(?<signature>.*)/;
   const result = functionIdRegex.exec(functionIdString);
@@ -249,6 +258,21 @@ function extractQualifiers(qualifierStringList: string) {
 
 function convertToQualifier(qualifierString: string) {
   return Qualifier[qualifierString as keyof typeof Qualifier];
+}
+
+function makeSuFileEntry(
+  functionId: FunctionId,
+  numberOfBytes: number,
+  qualifiers: Qualifier[]
+) {
+  return {
+    path: functionId.path,
+    line: functionId.line,
+    col: functionId.column,
+    functionSignature: functionId.signature,
+    numberOfBytes: numberOfBytes,
+    qualifiers: qualifiers
+  };
 }
 
 function removeNullEntries(entries: (SuFileEntry | null)[]): SuFileEntry[] {

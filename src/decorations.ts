@@ -48,7 +48,6 @@ function documentNeedsUpdate(
 ): boolean {
   const docPath = fs.realpathSync(document.uri.path);
   const docFileName = path.basename(docPath);
-  info('changed files: ' + changedFiles);
   return (
     changedFiles === undefined ||
     changedFiles.includes(docPath) ||
