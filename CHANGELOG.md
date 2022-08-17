@@ -6,6 +6,8 @@ All notable changes to the extension are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.2] - 2022-08-17
+
 - Using asynchronous file system operations.
 
 ## [0.3.1] - 2022-08-12
