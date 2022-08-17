@@ -1,8 +1,7 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-
 import { StackUsageDb, StackUsageDbEntry } from './stackUsage';
+import { promises as fs } from 'fs';
 import { info } from './logging';
 
 export function makeDecorationType() {
@@ -23,7 +22,7 @@ export function setStackUsageDecorationsToVisibleEditors(
   });
 }
 
-export function setStackUsageDecorationsToEditor(
+export async function setStackUsageDecorationsToEditor(
   editor: vscode.TextEditor,
   db: StackUsageDb,
   decorationType: vscode.TextEditorDecorationType,
@@ -35,18 +34,18 @@ export function setStackUsageDecorationsToEditor(
   if (!documentNeedsUpdate(editor.document, changedFiles)) {
     return;
   }
-  const entries = getEntriesForDocument(db, editor.document);
+  const entries = await getEntriesForDocument(db, editor.document);
   const docPath = editor.document.uri.path;
   info(`Decorating ${docPath}: ${entries.length} (total: ${db.length()})`);
   const decorations = makeDecorations(entries, editor.document);
   editor.setDecorations(decorationType, decorations);
 }
 
-function documentNeedsUpdate(
+async function documentNeedsUpdate(
   document: vscode.TextDocument,
   changedFiles?: string[]
-): boolean {
-  const docPath = fs.realpathSync(document.uri.path);
+): Promise<boolean> {
+  const docPath = await fs.realpath(document.uri.path);
   const docFileName = path.basename(docPath);
   return (
     changedFiles === undefined ||
@@ -55,11 +54,11 @@ function documentNeedsUpdate(
   );
 }
 
-function getEntriesForDocument(
+async function getEntriesForDocument(
   db: StackUsageDb,
   document: vscode.TextDocument
 ) {
-  const docPath = fs.realpathSync(document.uri.path);
+  const docPath = await fs.realpath(document.uri.path);
   const entries = db.getDataForFile(docPath);
   const docFileName = path.basename(docPath);
   const maybeEntries = db.getDataForFile(docFileName);

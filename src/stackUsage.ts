@@ -1,9 +1,8 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-
 import { debug, info, warning } from './logging';
 import { createFileSystemWatcher } from './fileSystem';
+import { promises as fs } from 'fs';
 import { setStackUsageDecorationsToVisibleEditors } from './decorations';
 
 export class StackUsageDb {
@@ -100,17 +99,26 @@ enum Qualifier {
   bounded = 'bounded'
 }
 
-export function registerSuFileProcessors(
+export async function registerSuFileProcessors(
   compileCommandsPath: string,
   db: StackUsageDb,
   decorationType: vscode.TextEditorDecorationType
-): vscode.Disposable[] {
-  const compileCommands = readCompileCommandsFromFile(compileCommandsPath);
-  return createSuFileWatchers(compileCommands, db, decorationType);
+): Promise<vscode.Disposable[]> {
+  try {
+    const compileCommands = await readCompileCommandsFromFile(
+      compileCommandsPath
+    );
+    return createSuFileWatchers(compileCommands, db, decorationType);
+  } catch (error) {
+    warning(`Reading failed: ${compileCommandsPath}`);
+    return [];
+  }
 }
 
-function readCompileCommandsFromFile(path: string): CompileCommand[] {
-  const rawdata = fs.readFileSync(path, 'utf-8');
+async function readCompileCommandsFromFile(
+  path: string
+): Promise<CompileCommand[]> {
+  const rawdata = await fs.readFile(path, 'utf-8');
   const data: CompileCommand[] = JSON.parse(rawdata);
   return data;
 }
@@ -167,26 +175,26 @@ function createSuFileWatcher(
   );
 }
 
-function processSuFile(
+async function processSuFile(
   suFileName: string,
   sourceName: string,
   db: StackUsageDb,
   decorationType: vscode.TextEditorDecorationType
 ) {
-  const entries = readSuFile(suFileName);
+  const entries = await readSuFile(suFileName);
   fixIncompleteCppPaths(entries, sourceName);
   const affectedFiles = db.addFromFile(entries, sourceName);
   debug('Affected files: ' + affectedFiles);
   setStackUsageDecorationsToVisibleEditors(db, decorationType, affectedFiles);
 }
 
-function readSuFile(path: string): SuFileEntry[] {
+async function readSuFile(path: string): Promise<SuFileEntry[]> {
   info(`Reading  ${path}`);
   try {
-    const fileContent = fs.readFileSync(path, 'utf8');
+    const fileContent = await fs.readFile(path, 'utf8');
     const lines = fileContent.split('\n');
     debug(`Lines to process: ${lines.length}`);
-    const entries = lines.map(readSuFileLine);
+    const entries = await Promise.all(lines.map(readSuFileLine));
     debug('All lines processed.');
     return removeNullEntries(entries);
   } catch (error) {
@@ -195,7 +203,7 @@ function readSuFile(path: string): SuFileEntry[] {
   }
 }
 
-function readSuFileLine(line: string): SuFileEntry | null {
+async function readSuFileLine(line: string): Promise<SuFileEntry | null> {
   debug(`Reading line: "${line}"`);
   line = line.trim();
   if (line.length === 0) {
@@ -217,14 +225,14 @@ function readSuFileLine(line: string): SuFileEntry | null {
     warning(`function id parsing failed: ${parts[0]}`);
     return null;
   }
-  functionId.path = makeRealIfPath(functionId.path);
+  functionId.path = await makeRealIfPath(functionId.path);
   debug(`-> real path: ${functionId.path}`);
   return makeSuFileEntry(functionId, numberOfBytes, qualifiers);
 }
 
 function makeRealIfPath(filePath: string) {
   if (filePath.includes(path.sep)) {
-    return fs.realpathSync(filePath);
+    return fs.realpath(filePath);
   }
   return filePath;
 }

@@ -1,8 +1,7 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-
 import { debug } from './logging';
+import { promises as fs } from 'fs';
 
 export function createFileSystemWatcher(
   baseDirectory: string,
@@ -32,12 +31,10 @@ export function createFileSystemWatcher(
   return watcher;
 }
 
-export function getRealPath(originalPath: string) {
+export async function getRealPath(originalPath: string) {
   try {
-    return path.resolve(
-      path.dirname(originalPath),
-      fs.readlinkSync(originalPath)
-    );
+    const linkedPath = await fs.readlink(originalPath);
+    return path.resolve(path.dirname(originalPath), linkedPath);
   } catch (error) {
     if (isError(error)) {
       if (error.code === 'ENOENT') {

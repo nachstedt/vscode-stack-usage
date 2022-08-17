@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -42,8 +41,8 @@ export class WorkspaceHandler {
     });
   }
 
-  private updateRealCompileCommandsWatcher() {
-    const realCompileCommandsPath = getRealCompileCommandsPath(
+  private async updateRealCompileCommandsWatcher() {
+    const realCompileCommandsPath = await getRealCompileCommandsPath(
       this.#workspaceFolder
     );
     if (realCompileCommandsPath !== null) {
@@ -51,7 +50,7 @@ export class WorkspaceHandler {
         createFileSystemWatcher(
           path.dirname(realCompileCommandsPath),
           path.basename(realCompileCommandsPath),
-          () => this.updateSuFileWatchers()
+          () => this.updateSuFileWatchers(realCompileCommandsPath)
         )
       );
     } else {
@@ -63,27 +62,16 @@ export class WorkspaceHandler {
     }
   }
 
-  private updateSuFileWatchers() {
-    const realCompileCommandsPath = getRealCompileCommandsPath(
-      this.#workspaceFolder
-    );
+  private async updateSuFileWatchers(realCompileCommandsPath: string) {
     this.#db.clear();
-    if (
-      realCompileCommandsPath !== null &&
-      fs.existsSync(realCompileCommandsPath)
-    ) {
-      info(`Reading .su files from ${realCompileCommandsPath}`);
-      this.#suFileWatchers.set(
-        registerSuFileProcessors(
-          realCompileCommandsPath,
-          this.#db,
-          this.#decorationType
-        )
-      );
-    } else {
-      info(`Not existing: ${realCompileCommandsPath}`);
-      setStackUsageDecorationsToVisibleEditors(this.#db, this.#decorationType);
-    }
+    info(`Reading .su files from ${realCompileCommandsPath}`);
+    this.#suFileWatchers.set(
+      await registerSuFileProcessors(
+        realCompileCommandsPath,
+        this.#db,
+        this.#decorationType
+      )
+    );
   }
 
   dispose() {
@@ -93,9 +81,9 @@ export class WorkspaceHandler {
   }
 }
 
-function getRealCompileCommandsPath(
+async function getRealCompileCommandsPath(
   workspaceFolder: vscode.WorkspaceFolder
-): string | null {
+): Promise<string | null> {
   return getRealPath(getCompileCommandsPath(workspaceFolder));
 }
 

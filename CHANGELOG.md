@@ -6,6 +6,8 @@ All notable changes to the extension are documented in this file.
 
 ## [Unreleased]
 
+- Using asynchronous file system operations.
+
 ## [0.3.1] - 2022-08-12
 
 - Added verbose debug output during su file reading to understand individual problems better.
